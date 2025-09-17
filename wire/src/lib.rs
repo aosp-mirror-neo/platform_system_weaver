@@ -35,8 +35,9 @@ use alloc::vec::Vec;
 use cbor::value::Value;
 use core::ops::Deref;
 use enumn::N;
-use hal_wire::{cbor_type_error, declare_req_rsp_enums, operations::Code, AsCborValue, CborError};
+use hal_wire::{declare_req_rsp_enums, AsCborValue, CborError};
 use hal_wire_derive::AsCborValue;
+use zeroize::ZeroizeOnDrop;
 
 /// Error codes defined in the Weaver HAL.
 #[derive(Debug, N, AsCborValue)]
@@ -48,8 +49,8 @@ pub enum ApiStatus {
 }
 
 /// A slot key.
-#[derive(Clone, AsCborValue)] // deliberately not `Debug`
-pub struct SlotKey(Vec<u8>);
+#[derive(Clone, ZeroizeOnDrop)] // deliberately not `Debug`
+pub struct SlotKey(pub Vec<u8>);
 
 impl Deref for SlotKey {
     type Target = [u8];
@@ -59,15 +60,37 @@ impl Deref for SlotKey {
     }
 }
 
+impl AsCborValue for SlotKey {
+    fn to_cbor_value(mut self) -> Result<Value, CborError> {
+        let inner = core::mem::take(&mut self.0);
+        inner.to_cbor_value()
+    }
+
+    fn from_cbor_value(value: Value) -> Result<Self, CborError> {
+        Vec::<u8>::from_cbor_value(value).map(SlotKey)
+    }
+}
+
 /// A slot value.
-#[derive(Clone, AsCborValue)] // deliberately not `Debug`
-pub struct SlotValue(Vec<u8>);
+#[derive(Clone, ZeroizeOnDrop)] // deliberately not `Debug`
+pub struct SlotValue(pub Vec<u8>);
 
 impl Deref for SlotValue {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl AsCborValue for SlotValue {
+    fn to_cbor_value(mut self) -> Result<Value, CborError> {
+        let inner = core::mem::take(&mut self.0);
+        inner.to_cbor_value()
+    }
+
+    fn from_cbor_value(value: Value) -> Result<Self, CborError> {
+        Vec::<u8>::from_cbor_value(value).map(SlotValue)
     }
 }
 

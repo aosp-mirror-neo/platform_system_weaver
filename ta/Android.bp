@@ -1,0 +1,64 @@
+// Copyright 2025, The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+rust_library {
+    name: "libweaver_ta",
+    crate_name: "weaver_ta",
+    srcs: ["src/lib.rs"],
+    edition: "2021",
+    lints: "android",
+    vendor_available: true,
+    host_supported: true,
+    rustlibs: [
+        "libciborium",
+        "libciborium_io",
+        "libweaver_wire",
+        "libhal_wire",
+        "libhal_ta",
+        "liblog_rust",
+    ],
+    proc_macros: [
+        "libhal_wire_derive",
+    ],
+}
+
+rust_library_rlib {
+    name: "libweaver_ta_nostd",
+    crate_name: "weaver_ta",
+    srcs: ["src/lib.rs"],
+    edition: "2021",
+    lints: "android",
+    vendor_available: true,
+    rustlibs: [
+        "libciborium_nostd",
+        "libciborium_io_nostd",
+        "libweaver_wire_nostd",
+        "libhal_wire_nostd",
+        "libhal_ta_nostd",
+        "liblog_rust_nostd",
+    ],
+    proc_macros: [
+        "libhal_wire_derive",
+    ],
+    prefer_rlib: true,
+    no_stdlibs: true,
+    stdlibs: [
+        "libcompiler_builtins.rust_sysroot",
+        "libcore.rust_sysroot",
+    ],
+}
