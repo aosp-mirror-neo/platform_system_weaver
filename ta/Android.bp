@@ -35,30 +35,7 @@ rust_library {
     proc_macros: [
         "libhal_wire_derive",
     ],
-}
-
-rust_library_rlib {
-    name: "libweaver_ta_nostd",
-    crate_name: "weaver_ta",
-    srcs: ["src/lib.rs"],
-    edition: "2021",
-    lints: "android",
-    vendor_available: true,
-    rustlibs: [
-        "libciborium_nostd",
-        "libciborium_io_nostd",
-        "libweaver_wire_nostd",
-        "libhal_wire_nostd",
-        "libhal_ta_nostd",
-        "liblog_rust_nostd",
-    ],
-    proc_macros: [
-        "libhal_wire_derive",
-    ],
-    prefer_rlib: true,
-    no_stdlibs: true,
-    stdlibs: [
-        "libcompiler_builtins.rust_sysroot",
-        "libcore.rust_sysroot",
-    ],
+    no_std: {
+        enabled: true,
+    },
 }
