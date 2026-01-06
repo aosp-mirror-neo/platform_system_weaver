@@ -37,6 +37,8 @@ pub enum Error {
     Cbor(CborError),
     /// Memory allocation failure.
     AllocationFailed,
+    /// File not found.
+    FileNotFound,
     /// Provided argument(s) are invalid.
     InvalidArgument,
     /// Incorrect key provided.
@@ -57,8 +59,8 @@ impl From<CborError> for Error {
     }
 }
 
-/// Information about failures to read.
-#[derive(AsCborValue, Clone)]
+/// Represents an individual Weaver slot.
+#[derive(AsCborValue, Clone, Default)]
 pub struct Slot {
     /// The timestamp of the last check.
     last_checked_timestamp: MillisecondsSinceEpoch,
@@ -115,8 +117,8 @@ impl WeaverTa {
         key_size: i32,
         value_size: i32,
     ) -> Self {
-        if num_slots < 0 || key_size < 0 || value_size < 0 {
-            panic!("negative num_slots, key_size or value_size found");
+        if num_slots < 64 || key_size < 16 || value_size < 16 {
+            panic!("num_slots, key_size or value_size below minimum");
         }
         Self { imp, num_slots, key_size, value_size }
     }
@@ -233,15 +235,15 @@ impl WeaverTa {
         }
 
         // There is a pending throttle period, so see if `now` is within it.
-        let deadline = slot.last_checked_timestamp + timeout;
-        if now <= slot.last_checked_timestamp {
+        let lockout_end_time = slot.last_checked_timestamp + timeout;
+        if now < slot.last_checked_timestamp {
             warn!(
                 "now {now:?} appears before last check {:?} for slot {slot_id}",
                 slot.last_checked_timestamp
             );
             Some(timeout)
-        } else if now < deadline {
-            let remaining = deadline - now;
+        } else if now < lockout_end_time {
+            let remaining = lockout_end_time - now;
             info!("in throttle period for slot {slot_id}, {remaining}ms remaining");
             Some(remaining)
         } else {
@@ -254,7 +256,7 @@ impl WeaverTa {
         if (0..self.num_slots).contains(&slot_id) {
             Ok(())
         } else {
-            error!("slot id {slot_id} is out of range: [0, {}]", self.num_slots);
+            error!("slot id {slot_id} is out of range: [0, {})", self.num_slots);
             Err(Error::InvalidArgument)
         }
     }

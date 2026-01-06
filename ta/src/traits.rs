@@ -20,6 +20,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use hal_ta::traits::{ConstTimeEq, MonotonicClock};
 use hal_wire::AsCborValue;
+use zeroize::Zeroize;
 
 /// Combined collection of trait implementations that must be provided.
 pub struct Implementation {
@@ -32,19 +33,24 @@ pub struct Implementation {
 }
 
 /// Abstraction of the device-specific functionality for storing slots.
-/// Slots must be persistent across boots and across untrusted factory resets.
+/// Slots must be persistent across boots. Slots must be persistent across untrusted factory reset,
+/// excepting the `slot_value` field, which should be cleared. Slots should be cleared on trusted
+/// factory reset.
 pub trait SlotStorage {
     /// Retrieves the slot data that was stored under `slot_id` by `write_slot`. If `write_slot` has
-    /// never been called for the provided `slot_id`, return `Err(Error::InvalidArgument)`.
+    /// never been called for the provided `slot_id`, return a `Slot` with all-zeroes values for its
+    /// fields.
     fn read_slot(&self, slot_id: i32) -> Result<Slot, Error>;
     /// Stores the `slot` data under the given `slot_id`.
     fn write_slot(&mut self, slot_id: i32, slot: &Slot) -> Result<(), Error>;
 }
 
-/// Abstraction of simple flat filesystem functionality.
+/// Abstraction of simple secure flat filesystem functionality.
+/// The secure filesystem must ensure that non-secure access to read/write/delete its files is not
+/// possible.
 pub trait SecureFilesystem {
-    /// Read the entire contents of the given file.  Return `Err(Error::InvalidArgument)` if the
-    /// file does not exist.
+    /// Read the entire contents of the given file.  Return `Err(Error::FileNotFound)` if the file
+    /// does not exist.
     fn read(&self, filename: &str) -> Result<Vec<u8>, Error>;
     /// Write the entire contents of the given file, overwriting any existing contents.
     fn write(&mut self, filename: &str, data: &[u8]) -> Result<(), Error>;
@@ -55,18 +61,26 @@ fn filename(slot_id: i32) -> String {
     alloc::format!("weaver.{slot_id}")
 }
 
-/// Implementation of slot storage based on an underlying flat filesystem.
+/// Implementation of slot storage based on an underlying secure flat filesystem.
 impl<T> SlotStorage for T
 where
     T: SecureFilesystem,
 {
     fn read_slot(&self, slot_id: i32) -> Result<Slot, Error> {
-        let data = self.read(&filename(slot_id))?;
-        Ok(Slot::from_slice(&data)?)
+        let mut data = match self.read(&filename(slot_id)) {
+            Ok(d) => d,
+            Err(Error::FileNotFound) => return Ok(Slot::default()),
+            Err(e) => return Err(e),
+        };
+        let result = Slot::from_slice(&data);
+        data.zeroize();
+        Ok(result?)
     }
 
     fn write_slot(&mut self, slot_id: i32, slot: &Slot) -> Result<(), Error> {
-        let data = slot.clone().into_vec()?;
-        self.write(&filename(slot_id), &data)
+        let mut data = slot.clone().into_vec()?;
+        let result = self.write(&filename(slot_id), &data);
+        data.zeroize();
+        result
     }
 }

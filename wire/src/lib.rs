@@ -49,7 +49,7 @@ pub enum ApiStatus {
 }
 
 /// A slot key.
-#[derive(Clone, ZeroizeOnDrop)] // deliberately not `Debug`
+#[derive(Clone, Default, ZeroizeOnDrop)] // deliberately not `Debug`
 pub struct SlotKey(pub Vec<u8>);
 
 impl Deref for SlotKey {
@@ -72,7 +72,7 @@ impl AsCborValue for SlotKey {
 }
 
 /// A slot value.
-#[derive(Clone, ZeroizeOnDrop)] // deliberately not `Debug`
+#[derive(Clone, Default, ZeroizeOnDrop)] // deliberately not `Debug`
 pub struct SlotValue(pub Vec<u8>);
 
 impl Deref for SlotValue {
