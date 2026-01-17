@@ -1,5 +1,5 @@
 # Note that Cargo is not an officially supported build tool (Android's Soong is the official
-# tool).  This Cargo.toml file is included purely for the convenience of KeyMint developers.
+# tool).  This Cargo.toml file is included purely for the convenience of developers.
 
 [package]
 name = "weaver-ta"
@@ -16,3 +16,4 @@ hal-wire-derive = "*"
 hal-ta = "*"
 log = "^0.4"
 weaver-wire = "*"
+zeroize = "1.8.1"
