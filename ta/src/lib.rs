@@ -18,7 +18,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use hal_wire::{types::MillisecondsSinceEpoch, AsCborValue, CborError};
+use hal_wire::{operations::Code, types::MillisecondsSinceEpoch, AsCborValue, CborError};
 use hal_wire_derive::AsCborValue;
 use log::{error, info, trace, warn};
 use weaver_wire as wire;
