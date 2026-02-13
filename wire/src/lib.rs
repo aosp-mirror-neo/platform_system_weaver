@@ -142,8 +142,12 @@ pub enum PerformOpResponse {
     /// A response indicating that the request should be retried after the given number of
     /// milliseconds (equivalent to [`ApiStatus::Throttle`]).
     Throttle(i64),
-    /// General error response. The contained error code is context-specific.
-    Err(i32),
+    /// A response indicating that the given key did not match the key in the slot. A new attempt to
+    /// read the slot can be made after the given number of milliseconds (equivalent to
+    /// [`ApiStatus::IncorrectKey`]).
+    IncorrectKey(i64),
+    /// An error response (equivalent to [`ApiStatus::Failed`]).
+    Err,
 }
 
 impl AsCborValue for PerformOpResponse {
@@ -164,19 +168,19 @@ impl AsCborValue for PerformOpResponse {
                 let timeout = i64::from_cbor_value(value)?;
                 Ok(Self::Throttle(timeout))
             }
-            ApiStatus::Failed | ApiStatus::IncorrectKey => {
-                let rc = i32::from_cbor_value(value)?;
-                Ok(Self::Err(rc))
+            ApiStatus::IncorrectKey => {
+                let timeout = i64::from_cbor_value(value)?;
+                Ok(Self::IncorrectKey(timeout))
             }
+            ApiStatus::Failed => Ok(Self::Err),
         }
     }
     fn to_cbor_value(self) -> Result<Value, CborError> {
         let (code, value) = match self {
             Self::Ok(rsp) => (ApiStatus::Ok, rsp.to_cbor_value()?),
             Self::Throttle(timeout) => (ApiStatus::Throttle, timeout.to_cbor_value()?),
-            // For Err, we use the raw i32 to find the best ApiStatus discriminant, defaulting to
-            // Failed. The second element is the raw i32 error code itself.
-            Self::Err(rc) => (ApiStatus::n(rc).unwrap_or(ApiStatus::Failed), rc.to_cbor_value()?),
+            Self::IncorrectKey(timeout) => (ApiStatus::IncorrectKey, timeout.to_cbor_value()?),
+            Self::Err => (ApiStatus::Failed, Value::Null),
         };
         Ok(Value::Array(vec![code.to_cbor_value()?, value]))
     }
@@ -188,7 +192,8 @@ impl PerformOpResponse {
         match self {
             Self::Ok(_) => ApiStatus::Ok,
             Self::Throttle(_) => ApiStatus::Throttle,
-            Self::Err(status) => ApiStatus::n(*status).unwrap_or(ApiStatus::Failed),
+            Self::IncorrectKey(_) => ApiStatus::IncorrectKey,
+            Self::Err => ApiStatus::Failed,
         }
     }
 }

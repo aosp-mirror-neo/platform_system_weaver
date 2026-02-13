@@ -18,14 +18,13 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use hal_wire::types::MillisecondsSinceEpoch;
-use hal_wire::{AsCborValue, CborError};
+use hal_wire::{operations::Code, types::MillisecondsSinceEpoch, AsCborValue, CborError};
 use hal_wire_derive::AsCborValue;
 use log::{error, info, trace, warn};
 use weaver_wire as wire;
 use wire::{
-    ApiStatus, GetConfigResponse, PerformOpReq, PerformOpResponse, PerformOpRsp, ReadResponse,
-    SlotKey, SlotValue, WeaverOperation, WriteResponse,
+    GetConfigResponse, PerformOpReq, PerformOpResponse, PerformOpRsp, ReadResponse, SlotKey,
+    SlotValue, WeaverOperation, WriteResponse,
 };
 
 pub mod traits;
@@ -41,8 +40,8 @@ pub enum Error {
     FileNotFound,
     /// Provided argument(s) are invalid.
     InvalidArgument,
-    /// Incorrect key provided.
-    IncorrectKey,
+    /// Incorrect key provided. Next attempt can be made after the given number of milliseconds.
+    IncorrectKey(i64),
     /// Operation cannot be performed until given number of milliseconds have passed.
     Throttle(i64),
 }
@@ -132,7 +131,7 @@ impl WeaverTa {
             }
             Err(e) => {
                 error!("failed to decode CBOR request: {e:?}");
-                (None, PerformOpResponse::Err(ApiStatus::Failed as i32))
+                (None, PerformOpResponse::Err)
             }
         };
         trace!("<- TA: send response {req_code:?} rc {:?}", rsp.error_code());
@@ -196,7 +195,7 @@ impl WeaverTa {
             self.imp.storage.write_slot(slot_id, &slot)?;
             Ok(slot.slot_value)
         } else {
-            Err(Error::IncorrectKey)
+            Err(Error::IncorrectKey(compute_retry_timeout(slot.failure_counter)))
         }
     }
 
@@ -294,8 +293,8 @@ fn error_rsp(op: WeaverOperation, err: Error) -> PerformOpResponse {
     warn!("failing {op:?} request with error {err:?}");
     match err {
         Error::Throttle(timeout) => PerformOpResponse::Throttle(timeout),
-        Error::IncorrectKey => PerformOpResponse::Err(ApiStatus::IncorrectKey as i32),
-        _ => PerformOpResponse::Err(ApiStatus::Failed as i32),
+        Error::IncorrectKey(timeout) => PerformOpResponse::IncorrectKey(timeout),
+        _ => PerformOpResponse::Err,
     }
 }
 
